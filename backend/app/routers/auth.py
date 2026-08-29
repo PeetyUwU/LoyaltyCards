@@ -63,6 +63,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been disabled",
+        )
 
     access_token = create_access_token(user.id)
     return Token(access_token=access_token)
