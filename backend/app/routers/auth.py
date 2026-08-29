@@ -10,8 +10,9 @@ from app.models.user_settings import UserSettings
 from app.schemas.user import UserCreate, UserOut, Token
 from app.security import hash_password, verify_password, create_access_token
 from app.deps import get_current_user
+from app.models.app_settings import AppSettings
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -21,6 +22,11 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username or email already registered")
+    
+    settings_result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
+    app_settings = settings_result.scalar_one_or_none()
+    if app_settings is not None and not app_settings.registration_enabled and (await db.execute(select(func.count()).select_from(User))).scalar_one() > 0:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registration is currently disabled")
 
     user_count = await db.execute(select(func.count()).select_from(User))
     is_first_user = user_count.scalar_one() == 0
