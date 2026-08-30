@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, Preset, BarcodeType } from '@/lib/types';
 import { useTranslation } from '@/context/LanguageContext';
+import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
 interface Props {
 	card: Card;
@@ -31,6 +32,7 @@ export default function EditCardClient({
 		card.barcode_type_id?.toString() ?? '',
 	);
 	const [colorScheme, setColorScheme] = useState(card.color_scheme ?? '');
+	const [isScannerOpen, setIsScannerOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const router = useRouter();
@@ -188,12 +190,34 @@ export default function EditCardClient({
 					<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
 						{t('cards.form.code_label')}
 					</label>
-					<input
-						value={code}
-						onChange={(e) => setCode(e.target.value)}
-						required
-						className='w-full font-mono rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-					/>
+					<div className='flex gap-2'>
+						<input
+							value={code}
+							onChange={(e) => setCode(e.target.value)}
+							required
+							className='w-full font-mono rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+						/>
+						<button
+							type='button'
+							onClick={() => setIsScannerOpen(true)}
+							className='flex items-center justify-center rounded-xl bg-blue-600 px-3.5 text-white hover:bg-blue-500 active:scale-95 transition cursor-pointer shrink-0'
+							title={t('scanner.scan_barcode')}
+						>
+							<svg
+								className='w-5 h-5'
+								fill='none'
+								viewBox='0 0 24 24'
+								stroke='currentColor'
+							>
+								<path
+									strokeLinecap='round'
+									strokeLinejoin='round'
+									strokeWidth={2}
+									d='M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 9h10M7 12h10M7 15h10'
+								/>
+							</svg>
+						</button>
+					</div>
 				</div>
 
 				<div>
@@ -237,6 +261,12 @@ export default function EditCardClient({
 					</button>
 				</div>
 			</form>
+
+			<BarcodeScannerModal
+				isOpen={isScannerOpen}
+				onClose={() => setIsScannerOpen(false)}
+				onScan={(scanned) => setCode(scanned)}
+			/>
 		</div>
 	);
 }

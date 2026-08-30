@@ -207,5 +207,19 @@
 		"login_link": "Sign in here",
 		"login_failed": "Invalid username or password",
 		"register_failed": "Registration failed. Please try again."
+	},
+	"scanner": {
+		"scan_barcode": "Scan Barcode",
+		"tab_camera": "Camera",
+		"tab_upload": "Upload Photo",
+		"select_image": "Choose an image",
+		"upload_hint": "Upload a clear photo containing a barcode",
+		"decoding": "Scanning photo...",
+		"point_camera": "Point your camera at a barcode",
+		"permission_denied": "Camera permission was denied. Please allow camera access in your browser settings.",
+		"no_camera": "No camera device found on this device.",
+		"no_code_found": "No barcode detected in this image.",
+		"file_read_error": "Could not read image file.",
+		"close": "Close Scanner"
 	}
 }

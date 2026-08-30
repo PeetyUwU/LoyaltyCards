@@ -207,5 +207,19 @@
 		"login_link": "Přihlaste se zde",
 		"login_failed": "Neplatné uživatelské jméno nebo heslo",
 		"register_failed": "Registrace se nezdařila. Zkuste to znovu."
+	},
+	"scanner": {
+		"scan_barcode": "Skenovat čárový kód",
+		"tab_camera": "Fotoaparát",
+		"tab_upload": "Nahrát fotku",
+		"select_image": "Vybrat obrázek",
+		"upload_hint": "Nahrajte zřetelnou fotografii s čárovým kódem",
+		"decoding": "Rozpoznávání...",
+		"point_camera": "Namiřte fotoaparát na čárový kód",
+		"permission_denied": "Přístup ke kameře byl odepřen. Povolte přístup ke kameře v nastavení prohlížeče.",
+		"no_camera": "Na tomto zařízení nebyl nalezen žádný fotoaparát.",
+		"no_code_found": "Na obrázku nebyl nalezen žádný čárový kód.",
+		"file_read_error": "Soubor obrázku se nepodařilo načíst.",
+		"close": "Zavřít skener"
 	}
 }
