@@ -7,7 +7,7 @@ from app.models.company_preset import CompanyPreset
 from app.models.barcode_type import BarcodeType
 from app.models.card import Card
 from app.models.user import User
-from app.schemas.preset import PresetOut, BarcodeTypeOut
+from app.schemas.preset import PresetOut, BarcodeTypeOut, PresetCreate, PresetUpdate
 from app.deps import get_current_user, require_role
 
 router = APIRouter()
@@ -20,6 +20,34 @@ async def get_presets(db: AsyncSession = Depends(get_db), current_user: User = D
     presets = result.scalars().all()
     return presets
 
+@router.post("/presets/", response_model=PresetOut, status_code=status.HTTP_201_CREATED)
+async def create_preset(
+    preset_in: PresetCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin")),
+):
+    existing = await db.execute(
+        select(CompanyPreset).where(CompanyPreset.name == preset_in.name)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A preset with this name already exists",
+        )
+
+    barcode_type = await db.get(BarcodeType, preset_in.barcode_type_id)
+    if not barcode_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid barcode type selected",
+        )
+
+    db_preset = CompanyPreset(**preset_in.model_dump())
+    db.add(db_preset)
+    await db.commit()
+    await db.refresh(db_preset)
+    return db_preset
+
 
 @router.get("/presets/{id}", response_model=PresetOut)
 async def get_preset(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -30,6 +58,50 @@ async def get_preset(id: int, db: AsyncSession = Depends(get_db), current_user: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preset not found")
     return preset
 
+@router.patch("/presets/{id}", response_model=PresetOut)
+async def update_preset(
+    id: int,
+    preset_in: PresetUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin")),
+):
+    result = await db.execute(select(CompanyPreset).where(CompanyPreset.id == id))
+    preset = result.scalar_one_or_none()
+    if not preset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Preset not found",
+        )
+
+    update_data = preset_in.model_dump(exclude_unset=True)
+
+    if "name" in update_data and update_data["name"] != preset.name:
+        existing = await db.execute(
+            select(CompanyPreset).where(
+                CompanyPreset.id != id,
+                CompanyPreset.name == update_data["name"],
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A preset with this name already exists",
+            )
+
+    if "barcode_type_id" in update_data:
+        bt = await db.get(BarcodeType, update_data["barcode_type_id"])
+        if not bt:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid barcode type selected",
+            )
+
+    for key, value in update_data.items():
+        setattr(preset, key, value)
+
+    await db.commit()
+    await db.refresh(preset)
+    return preset
 
 @router.delete("/presets/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_preset(

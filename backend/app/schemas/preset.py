@@ -1,5 +1,17 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
+class PresetCreate(BaseModel):
+    name: str
+    image_url: str = ""
+    color_scheme: Optional[str] = None
+    barcode_type_id: int
+
+class PresetUpdate(BaseModel):
+    name: Optional[str] = None
+    image_url: Optional[str] = None
+    color_scheme: Optional[str] = None
+    barcode_type_id: Optional[int] = None
 
 class PresetOut(BaseModel):
     id: int
