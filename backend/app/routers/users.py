@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.role import Role
 from app.models.user_settings import UserSettings
-from app.schemas.user import UserOut, UserCreate, UserUpdate, PasswordChange, PasswordReset
+from app.schemas.user import UserOut, UserCreate, UserUpdate, PasswordChange, PasswordReset, AdminUserOut
 from app.deps import get_current_user, require_role
 from app.security import hash_password, verify_password
 
@@ -203,3 +203,30 @@ async def admin_reset_password(
 
     user.password_hash = hash_password(body.new_password)
     await db.commit()
+
+@router.get("/users/admin", response_model=list[AdminUserOut])
+async def list_users_admin(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin")),
+):
+    offset = (page - 1) * limit
+    query = (
+        select(User, Role.role_name)
+        .join(Role, Role.id == User.role_id)
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "role_name": role_name,
+            "is_active": u.is_active,
+        }
+        for u, role_name in rows
+    ]

@@ -7,6 +7,7 @@ from app.models.card import Card
 from app.models.card_access import CardAccess
 from app.models.user import User
 from app.schemas.card import CardCreate, CardUpdate, CardOut, SharedCardOut
+from app.schemas.card_access import CardAccessWithUserOut
 from app.deps import get_current_user
 from app.services.card_access import require_card_access, AccessLevel
 from app.services.barcode_validation import resolve_barcode_type, validate_card_code
@@ -157,3 +158,26 @@ async def delete_card(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card not found")
     await db.delete(db_card)
     await db.commit()
+    
+@router.get("/cards/{card_id}/access", response_model=list[CardAccessWithUserOut])
+async def list_card_access(
+    card_id: int,
+    db: AsyncSession = Depends(get_db),
+    access: CardAccess = Depends(require_card_access(AccessLevel.owner)),
+):
+    query = (
+        select(CardAccess, User.username)
+        .join(User, User.id == CardAccess.user_id)
+        .where(CardAccess.card_id == card_id)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    return [
+        {
+            "card_id": ca.card_id,
+            "user_id": ca.user_id,
+            "username": username,
+            "access_level": ca.access_level,
+        }
+        for ca, username in rows
+    ]

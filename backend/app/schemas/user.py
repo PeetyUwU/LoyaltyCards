@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 
 class UserCreate(BaseModel):
@@ -18,6 +18,15 @@ class UserOut(BaseModel):
     email: EmailStr
 
     model_config = {"from_attributes": True}
+
+class AdminUserOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    role_name: str
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdate(BaseModel):
     username: str | None = None

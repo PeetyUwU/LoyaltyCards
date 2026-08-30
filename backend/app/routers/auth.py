@@ -7,10 +7,10 @@ from app.database import get_db
 from app.models.user import User
 from app.models.role import Role
 from app.models.user_settings import UserSettings
+from app.models.app_settings import AppSettings
 from app.schemas.user import UserCreate, UserOut, Token
 from app.security import hash_password, verify_password, create_access_token
 from app.deps import get_current_user
-from app.models.app_settings import AppSettings
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username or email already registered")
-    
+
     settings_result = await db.execute(select(AppSettings).where(AppSettings.id == 1))
     app_settings = settings_result.scalar_one_or_none()
     if app_settings is not None and not app_settings.registration_enabled and (await db.execute(select(func.count()).select_from(User))).scalar_one() > 0:
@@ -63,15 +63,20 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been disabled",
         )
 
-    access_token = create_access_token(user.id, user.token_version)
+    role_result = await db.execute(select(Role).where(Role.id == user.role_id))
+    role = role_result.scalar_one_or_none()
+    role_name = role.role_name if role else "user"
+
+    access_token = create_access_token(user.id, user.token_version, role_name)
     return Token(access_token=access_token)
+
 
 @router.get("/me", response_model=UserOut)
 async def read_current_user(current_user: User = Depends(get_current_user)):

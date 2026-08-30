@@ -13,3 +13,11 @@ class CardAccessOut(BaseModel):
     access_level: str
 
     model_config = ConfigDict(from_attributes=True)
+    
+class CardAccessWithUserOut(BaseModel):
+    card_id: int
+    user_id: int
+    username: str
+    access_level: str
+
+    model_config = ConfigDict(from_attributes=True)
