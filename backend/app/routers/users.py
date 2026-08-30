@@ -4,12 +4,13 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models.user import User, UserOut
+from app.models.user import User
 from app.models.role import Role
 from app.models.user_settings import UserSettings
-from app.schemas.user import UserOut, UserCreate
+from app.schemas.user import UserOut, UserCreate, UserUpdate, PasswordChange, PasswordReset
 from app.deps import get_current_user, require_role
-from app.security import hash_password
+from app.security import hash_password, verify_password
+
 
 router = APIRouter()
 
@@ -114,3 +115,91 @@ async def set_user_enabled(
     await db.commit()
     await db.refresh(user)
     return user
+
+@router.patch("/users/{user_id}", response_model=UserOut)
+async def update_user(
+    user_id: int,
+    user_in: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin")),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    update_data = user_in.model_dump(exclude_unset=True)
+
+    if "username" in update_data or "email" in update_data:
+        existing = await db.execute(
+            select(User).where(
+                User.id != user_id,
+                (User.username == update_data.get("username", user.username))
+                | (User.email == update_data.get("email", user.email)),
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already in use")
+
+    for key, value in update_data.items():
+        setattr(user, key, value)
+
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.patch("/users/me/change", response_model=UserOut)
+async def update_own_profile(
+    user_in: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    update_data = user_in.model_dump(exclude_unset=True)
+
+    if "username" in update_data or "email" in update_data:
+        existing = await db.execute(
+            select(User).where(
+                User.id != current_user.id,
+                (User.username == update_data.get("username", current_user.username))
+                | (User.email == update_data.get("email", current_user.email)),
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already in use")
+
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+@router.post("/users/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_own_password(
+    body: PasswordChange,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
+
+    current_user.password_hash = hash_password(body.new_password)
+    current_user.token_version += 1
+    db.add(current_user)
+    await db.commit()
+
+
+@router.post("/users/{user_id}/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_reset_password(
+    user_id: int,
+    body: PasswordReset,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin")),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    user.password_hash = hash_password(body.new_password)
+    await db.commit()

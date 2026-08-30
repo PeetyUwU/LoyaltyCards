@@ -19,7 +19,17 @@ class UserOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class UserUpdate(BaseModel):
+    username: str | None = None
+    email: EmailStr | None = None
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class PasswordReset(BaseModel):
+    new_password: str
