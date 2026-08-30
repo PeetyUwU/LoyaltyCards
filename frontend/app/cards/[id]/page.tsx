@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { Card } from '@/lib/types';
+import { Card, Preset, BarcodeType } from '@/lib/types';
 import CardDetailClient from './CardDetailClient';
 
 export default async function CardDetailPage({
@@ -11,8 +11,18 @@ export default async function CardDetailPage({
 	const { id } = await params;
 
 	let card: Card;
+	let presets: Preset[] = [];
+	let barcodeTypes: BarcodeType[] = [];
+
 	try {
-		card = await apiFetch<Card>(`/cards/${id}`);
+		const [cardRes, presetsRes, barcodeTypesRes] = await Promise.all([
+			apiFetch<Card>(`/cards/${id}`),
+			apiFetch<Preset[]>('/presets/').catch(() => []),
+			apiFetch<BarcodeType[]>('/barcode-types/').catch(() => []),
+		]);
+		card = cardRes;
+		presets = presetsRes;
+		barcodeTypes = barcodeTypesRes;
 	} catch {
 		notFound();
 	}
@@ -28,9 +38,20 @@ export default async function CardDetailPage({
 					'/cards/shared',
 				);
 			const match = shared.find((c) => c.id === card.id);
-			if (match) accessLevel = match.access_level as 'editor' | 'viewer';
+			if (match)
+				accessLevel = match.access_level as
+					| 'owner'
+					| 'editor'
+					| 'viewer';
 		}
 	} catch {}
 
-	return <CardDetailClient card={card} accessLevel={accessLevel} />;
+	return (
+		<CardDetailClient
+			card={card}
+			presets={presets}
+			barcodeTypes={barcodeTypes}
+			accessLevel={accessLevel}
+		/>
+	);
 }

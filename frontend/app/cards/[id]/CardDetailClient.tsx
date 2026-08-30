@@ -1,18 +1,52 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/lib/types';
+import { Card, Preset, BarcodeType } from '@/lib/types';
+import BarcodeDisplay from '@/components/BarcodeDisplay';
 
 interface Props {
 	card: Card;
+	presets?: Preset[];
+	barcodeTypes?: BarcodeType[];
 	accessLevel: 'owner' | 'editor' | 'viewer';
 }
 
-export default function CardDetailClient({ card, accessLevel }: Props) {
+type CodePosition = 'top' | 'center' | 'bottom';
+
+export default function CardDetailClient({
+	card,
+	presets = [],
+	barcodeTypes = [],
+	accessLevel,
+}: Props) {
+	const [position, setPosition] = useState<CodePosition>('top');
 	const [deleting, setDeleting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const router = useRouter();
+
+	const matchedPreset = presets.find((p) => p.id === card.company_preset_id);
+	const activeColor =
+		card.color_scheme || matchedPreset?.color_scheme || null;
+
+	// Resolve barcode type code string (e.g. "EAN13", "QR_CODE", "CODE128")
+	const typeId = card.barcode_type_id || matchedPreset?.barcode_type_id;
+	const matchedBarcodeType = barcodeTypes.find((bt) => bt.id === typeId);
+	const barcodeTypeCode = matchedBarcodeType?.code || null;
+
+	useEffect(() => {
+		const saved = localStorage.getItem(
+			'card_code_position',
+		) as CodePosition | null;
+		if (saved === 'top' || saved === 'center' || saved === 'bottom') {
+			setPosition(saved);
+		}
+	}, []);
+
+	function handlePositionChange(newPos: CodePosition) {
+		setPosition(newPos);
+		localStorage.setItem('card_code_position', newPos);
+	}
 
 	const canEdit = accessLevel === 'owner' || accessLevel === 'editor';
 	const canDelete = accessLevel === 'owner';
@@ -41,59 +75,127 @@ export default function CardDetailClient({ card, accessLevel }: Props) {
 		}
 	}
 
-	return (
-		<div className='mx-auto max-w-md p-6'>
-			<button
-				onClick={() => router.push('/cards')}
-				className='mb-4 text-sm text-gray-400'
-			>
-				← Back
-			</button>
+	const codeComponent = (
+		<div
+			className='w-full rounded-2xl p-4 sm:p-6 text-center shadow-md transition-all duration-200'
+			style={{
+				backgroundColor: activeColor
+					? `${activeColor}15`
+					: 'var(--card-bg)',
+				borderColor: activeColor || 'var(--card-border)',
+				borderWidth: '1px',
+			}}
+		>
+			<div className='bg-white text-black p-3 sm:p-4 rounded-xl shadow-inner border border-zinc-200 flex items-center justify-center'>
+				<BarcodeDisplay
+					code={card.code}
+					barcodeType={barcodeTypeCode}
+				/>
+			</div>
+		</div>
+	);
 
-			<div className='rounded border p-6'>
-				<h1 className='text-xl font-semibold'>{card.card_name}</h1>
-				<p className='mt-2 text-lg font-mono'>{card.code}</p>
-
-				{accessLevel !== 'owner' && (
-					<p className='mt-2 text-xs text-gray-400'>
-						Access: {accessLevel} (shared with you)
-					</p>
-				)}
-
-				{error && <p className='mt-3 text-sm text-red-600'>{error}</p>}
-
-				<div className='mt-6 flex gap-2'>
-					{canEdit && (
-						<button
-							onClick={() =>
-								router.push(`/cards/${card.id}/edit`)
-							}
-							className='rounded border px-3 py-1.5 text-sm'
-						>
-							Edit
-						</button>
+	const detailsComponent = (
+		<div className='rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 p-5 sm:p-6 shadow-sm'>
+			<div className='flex items-start justify-between'>
+				<div>
+					<h1 className='text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100'>
+						{card.card_name}
+					</h1>
+					{matchedPreset && (
+						<p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium'>
+							{matchedPreset.name}
+						</p>
 					)}
-					{canShare && (
-						<button
-							onClick={() =>
-								router.push(`/cards/${card.id}/share`)
-							}
-							className='rounded border px-3 py-1.5 text-sm'
-						>
-							Share
-						</button>
-					)}
-					{canDelete && (
-						<button
-							onClick={handleDelete}
-							disabled={deleting}
-							className='rounded border border-red-600 px-3 py-1.5 text-sm text-red-600 disabled:opacity-50'
-						>
-							{deleting ? 'Deleting...' : 'Delete'}
-						</button>
+					{accessLevel !== 'owner' && (
+						<span className='inline-block mt-2 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400'>
+							Shared as {accessLevel}
+						</span>
 					)}
 				</div>
+				{activeColor && (
+					<span
+						className='h-6 w-6 rounded-full border border-black/10 shrink-0 mt-1 shadow-sm'
+						style={{ backgroundColor: activeColor }}
+					/>
+				)}
 			</div>
+
+			{error && <p className='mt-4 text-sm text-red-500'>{error}</p>}
+
+			<div className='mt-6 flex flex-wrap gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-4'>
+				{canEdit && (
+					<button
+						type='button'
+						onClick={() => router.push(`/cards/${card.id}/edit`)}
+						className='flex-1 min-w-[80px] rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-700 transition'
+					>
+						Edit
+					</button>
+				)}
+				{canShare && (
+					<button
+						type='button'
+						onClick={() => router.push(`/cards/${card.id}/share`)}
+						className='flex-1 min-w-[80px] rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-700 transition'
+					>
+						Share
+					</button>
+				)}
+				{canDelete && (
+					<button
+						type='button'
+						onClick={handleDelete}
+						disabled={deleting}
+						className='flex-1 min-w-[80px] rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition'
+					>
+						{deleting ? 'Deleting...' : 'Delete'}
+					</button>
+				)}
+			</div>
+		</div>
+	);
+
+	return (
+		<div className='mx-auto flex min-h-[calc(100dvh-4rem)] max-w-2xl flex-col justify-between px-4 py-4 sm:py-6'>
+			<div className='flex flex-col gap-4'>
+				<div className='flex items-center justify-between'>
+					<button
+						type='button'
+						onClick={() => router.push('/cards')}
+						className='flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors'
+					>
+						← Back
+					</button>
+
+					<div className='flex items-center gap-1 bg-zinc-200 dark:bg-zinc-800 p-1 rounded-lg text-xs font-medium'>
+						{(['top', 'center', 'bottom'] as CodePosition[]).map(
+							(pos) => (
+								<button
+									key={pos}
+									type='button'
+									onClick={() => handlePositionChange(pos)}
+									className={`px-2.5 py-1 rounded-md capitalize transition-all ${
+										position === pos
+											? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold'
+											: 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+									}`}
+								>
+									{pos}
+								</button>
+							),
+						)}
+					</div>
+				</div>
+
+				{position === 'top' && codeComponent}
+				{detailsComponent}
+				{position === 'center' && codeComponent}
+			</div>
+
+			{position === 'bottom' && (
+				<div className='mt-auto pt-6 pb-2'>{codeComponent}</div>
+			)}
 		</div>
 	);
 }
