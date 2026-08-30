@@ -1,6 +1,5 @@
 backend/.venv
 frontend/node_modules
-package-lock.json
 .env
 __pycache__
 .next
