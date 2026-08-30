@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_access import CardAccess
-from app.models.preset import CompanyPreset
+from app.models.company_preset import CompanyPreset
 from app.models.user import User
 from app.schemas.card import CardCreate, CardUpdate, CardOut, SharedCardOut
 from app.schemas.card_access import CardAccessWithUserOut
