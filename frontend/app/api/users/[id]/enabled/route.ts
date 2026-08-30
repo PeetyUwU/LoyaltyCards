@@ -1,31 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://backend:8000';
 
 export async function PATCH(
 	request: NextRequest,
-	{ params }: { params: Promise<{ id: string }> },
+	context: { params: Promise<{ id: string }> },
 ) {
-	const { id } = await params;
+	const { id } = await context.params;
 	const cookieStore = await cookies();
 	const token = cookieStore.get('access_token')?.value;
-	const { is_active } = await request.json();
+
+	let isActive = request.nextUrl.searchParams.get('is_active');
+
+	if (isActive === null) {
+		try {
+			const body = await request.json();
+			if (typeof body?.is_active === 'boolean') {
+				isActive = String(body.is_active);
+			}
+		} catch {}
+	}
+
+	if (isActive === null) {
+		return NextResponse.json(
+			{ detail: 'Missing is_active query parameter or body field' },
+			{ status: 400 },
+		);
+	}
 
 	const res = await fetch(
-		`${BACKEND_URL}/users/${id}/enabled?is_active=${is_active}`,
+		`${BACKEND_URL}/users/${id}/enabled?is_active=${isActive}`,
 		{
 			method: 'PATCH',
-			headers: { Authorization: `Bearer ${token}` },
+			headers: {
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+			},
 		},
 	);
 
-	if (!res.ok) {
-		const error = await res.json().catch(() => ({}));
-		return NextResponse.json(
-			{ detail: error.detail || 'Failed to update user' },
-			{ status: res.status },
-		);
-	}
-	return NextResponse.json(await res.json());
+	const data = await res.json().catch(() => ({}));
+
+	return NextResponse.json(data, { status: res.status });
 }

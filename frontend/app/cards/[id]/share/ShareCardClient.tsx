@@ -3,8 +3,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardAccessOut, User } from '@/lib/types';
+import { useTranslation } from '@/context/LanguageContext';
 
-export default function ShareCardClient({ card }: { card: Card }) {
+interface Props {
+	card: Card;
+	isModal?: boolean;
+	onCancel?: () => void;
+}
+
+export default function ShareCardClient({
+	card,
+	isModal = false,
+	onCancel,
+}: Props) {
 	const [query, setQuery] = useState('');
 	const [suggestions, setSuggestions] = useState<User[]>([]);
 	const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
@@ -21,6 +32,7 @@ export default function ShareCardClient({ card }: { card: Card }) {
 	const [saving, setSaving] = useState(false);
 	const router = useRouter();
 	const containerRef = useRef<HTMLDivElement>(null);
+	const { t } = useTranslation();
 
 	const fetchUsers = useCallback(
 		(searchQuery: string, signal?: AbortSignal) => {
@@ -125,10 +137,10 @@ export default function ShareCardClient({ card }: { card: Card }) {
 				);
 			} else {
 				const data = await res.json().catch(() => ({}));
-				setError(data.detail || 'Failed to update access level');
+				setError(data.detail || t('share_card.update_role_error'));
 			}
 		} catch {
-			setError('Something went wrong.');
+			setError(t('common.generic_error'));
 		} finally {
 			setUpdatingUserId(null);
 		}
@@ -150,10 +162,10 @@ export default function ShareCardClient({ card }: { card: Card }) {
 				);
 			} else {
 				const data = await res.json().catch(() => ({}));
-				setError(data.detail || 'Failed to remove access');
+				setError(data.detail || t('share_card.remove_access_error'));
 			}
 		} catch {
-			setError('Something went wrong.');
+			setError(t('common.generic_error'));
 		} finally {
 			setRevoking(null);
 		}
@@ -197,10 +209,18 @@ export default function ShareCardClient({ card }: { card: Card }) {
 			.filter(Boolean);
 
 		if (failed.length > 0) {
-			setError(`Failed to share with: ${failed.join(', ')}`);
+			setError(
+				t('share_card.error_failed_users', {
+					users: failed.join(', '),
+				}),
+			);
 		} else {
 			setSuccess(
-				`Shared with ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`,
+				selectedUsers.length === 1
+					? t('share_card.success_single')
+					: t('share_card.success_multiple', {
+							count: selectedUsers.length,
+						}),
 			);
 			setSelectedUsers([]);
 			loadAccess();
@@ -209,42 +229,57 @@ export default function ShareCardClient({ card }: { card: Card }) {
 	}
 
 	return (
-		<div className='mx-auto max-w-md p-6'>
-			<button
-				type='button'
-				onClick={() => router.back()}
-				className='mb-4 text-sm text-gray-400 hover:text-white'
-			>
-				← Back
-			</button>
-
-			<h1 className='mb-4 text-xl font-semibold'>
-				Share &quot;{card.card_name}&quot;
-			</h1>
-
-			{error && <p className='mb-3 text-sm text-red-500'>{error}</p>}
-			{success && (
-				<p className='mb-3 text-sm text-green-500'>{success}</p>
+		<div
+			className={
+				isModal ? 'w-full space-y-4' : 'mx-auto max-w-md p-6 space-y-4'
+			}
+		>
+			{!isModal && (
+				<button
+					type='button'
+					onClick={() => router.back()}
+					className='text-sm text-gray-400 hover:text-white'
+				>
+					← {t('common.back')}
+				</button>
 			)}
+
+			<div className='flex items-center justify-between'>
+				<h1 className='text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 truncate'>
+					{t('share_card.title', { name: card.card_name })}
+				</h1>
+				{isModal && onCancel && (
+					<button
+						type='button'
+						onClick={onCancel}
+						className='rounded-lg p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+					>
+						✕
+					</button>
+				)}
+			</div>
+
+			{error && <p className='text-xs text-red-500'>{error}</p>}
+			{success && <p className='text-xs text-green-500'>{success}</p>}
 
 			<div className='space-y-4'>
 				<div ref={containerRef} className='relative'>
-					<label className='block text-sm font-medium'>
-						Add people
+					<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
+						{t('share_card.add_people')}
 					</label>
 
 					{selectedUsers.length > 0 && (
-						<div className='mt-2 flex flex-wrap gap-2'>
+						<div className='mb-2 flex flex-wrap gap-1.5'>
 							{selectedUsers.map((u) => (
 								<span
 									key={u.id}
-									className='flex items-center gap-1 rounded-full border px-3 py-1 text-sm'
+									className='flex items-center gap-1 rounded-full border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-800 dark:text-zinc-200'
 								>
 									{u.username}
 									<button
 										type='button'
 										onClick={() => removeUser(u.id)}
-										className='text-gray-400 hover:text-red-500'
+										className='text-zinc-400 hover:text-red-500'
 										aria-label={`Remove ${u.username}`}
 									>
 										×
@@ -264,18 +299,18 @@ export default function ShareCardClient({ card }: { card: Card }) {
 							setShowSuggestions(true);
 							fetchUsers(query);
 						}}
-						placeholder='Search by username...'
-						className='mt-2 w-full rounded border px-3 py-2 bg-transparent'
+						placeholder={t('share_card.search_placeholder')}
+						className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 					/>
 
 					{showSuggestions && suggestions.length > 0 && (
-						<ul className='absolute z-10 mt-1 w-full rounded border bg-neutral-900 shadow-lg max-h-48 overflow-y-auto'>
+						<ul className='absolute z-20 mt-1 w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 shadow-lg max-h-48 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-700/50'>
 							{suggestions.map((u) => (
 								<li key={u.id}>
 									<button
 										type='button'
 										onClick={() => addUser(u)}
-										className='w-full px-3 py-2 text-left hover:bg-neutral-800 text-sm'
+										className='w-full px-3.5 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100'
 									>
 										{u.username}
 									</button>
@@ -286,8 +321,8 @@ export default function ShareCardClient({ card }: { card: Card }) {
 				</div>
 
 				<div>
-					<label className='block text-sm font-medium'>
-						Access level
+					<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
+						{t('share_card.access_level')}
 					</label>
 					<select
 						value={accessLevel}
@@ -296,10 +331,10 @@ export default function ShareCardClient({ card }: { card: Card }) {
 								e.target.value as 'editor' | 'viewer',
 							)
 						}
-						className='mt-1 w-full rounded border px-3 py-2 bg-transparent'
+						className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 					>
-						<option value='viewer'>Viewer</option>
-						<option value='editor'>Editor</option>
+						<option value='viewer'>{t('share_card.viewer')}</option>
+						<option value='editor'>{t('share_card.editor')}</option>
 					</select>
 				</div>
 
@@ -307,27 +342,33 @@ export default function ShareCardClient({ card }: { card: Card }) {
 					type='button'
 					onClick={handleShare}
 					disabled={selectedUsers.length === 0 || saving}
-					className='w-full rounded bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50'
+					className='w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50 transition'
 				>
 					{saving
-						? 'Sharing...'
-						: `Share${selectedUsers.length > 0 ? ` with ${selectedUsers.length}` : ''}`}
+						? t('share_card.sharing')
+						: selectedUsers.length > 0
+							? t('share_card.share_with_count', {
+									count: selectedUsers.length,
+								})
+							: t('share_card.share_btn')}
 				</button>
 
 				{currentAccess.length > 0 && (
-					<div className='pt-4 border-t'>
-						<h2 className='text-sm font-medium mb-2'>
-							People with access
+					<div className='pt-3 border-t border-zinc-200 dark:border-zinc-800'>
+						<h2 className='text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2'>
+							{t('share_card.people_with_access')}
 						</h2>
-						<ul className='space-y-3'>
+						<ul className='space-y-2 max-h-40 overflow-y-auto'>
 							{currentAccess.map((access) => (
 								<li
 									key={access.user_id}
-									className='flex items-center justify-between gap-3 text-sm py-1'
+									className='flex items-center justify-between gap-2 text-xs py-1 rounded-lg px-2 bg-zinc-50 dark:bg-zinc-800/50'
 								>
-									<span className='truncate'>
+									<span className='truncate font-medium text-zinc-800 dark:text-zinc-200'>
 										{usersById.get(access.user_id) ||
-											`User #${access.user_id}`}
+											t('share_card.user_fallback', {
+												id: access.user_id,
+											})}
 									</span>
 									<div className='flex items-center gap-2 shrink-0'>
 										<select
@@ -344,13 +385,13 @@ export default function ShareCardClient({ card }: { card: Card }) {
 														| 'viewer',
 												)
 											}
-											className='rounded border px-2 py-1 text-xs bg-transparent disabled:opacity-50'
+											className='rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-0.5 text-xs focus:outline-none disabled:opacity-50'
 										>
 											<option value='viewer'>
-												Viewer
+												{t('share_card.viewer')}
 											</option>
 											<option value='editor'>
-												Editor
+												{t('share_card.editor')}
 											</option>
 										</select>
 										<button
@@ -364,8 +405,8 @@ export default function ShareCardClient({ card }: { card: Card }) {
 											className='text-xs text-red-500 hover:underline disabled:opacity-50'
 										>
 											{revoking === access.user_id
-												? 'Removing...'
-												: 'Remove'}
+												? t('common.removing')
+												: t('common.remove')}
 										</button>
 									</div>
 								</li>

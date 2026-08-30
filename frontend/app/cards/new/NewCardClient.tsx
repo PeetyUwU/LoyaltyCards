@@ -2,14 +2,24 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Preset, BarcodeType } from '@/lib/types';
+import { Card, Preset, BarcodeType } from '@/lib/types';
+import { useTranslation } from '@/context/LanguageContext';
 
 interface Props {
 	presets: Preset[];
 	barcodeTypes: BarcodeType[];
+	isModal?: boolean;
+	onSuccess?: (card: Card) => void;
+	onCancel?: () => void;
 }
 
-export default function NewCardClient({ presets, barcodeTypes }: Props) {
+export default function NewCardClient({
+	presets,
+	barcodeTypes,
+	isModal = false,
+	onSuccess,
+	onCancel,
+}: Props) {
 	const [cardName, setCardName] = useState('');
 	const [code, setCode] = useState('');
 	const [presetId, setPresetId] = useState<string>('');
@@ -18,6 +28,7 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const router = useRouter();
+	const { t } = useTranslation();
 
 	const selectedPreset = presets.find((p) => p.id === Number(presetId));
 
@@ -51,61 +62,90 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
-				setError(data.detail || 'Failed to create card');
+				setError(data.detail || t('cards.create_error'));
 				setSaving(false);
 				return;
 			}
 
 			const created = await res.json();
-			router.push(`/cards/${created.id}`);
-			router.refresh();
+			setSaving(false);
+
+			if (onSuccess) {
+				onSuccess(created);
+			} else {
+				router.push(`/cards/${created.id}`);
+				router.refresh();
+			}
 		} catch {
-			setError('Something went wrong. Try again.');
+			setError(t('common.generic_error'));
 			setSaving(false);
 		}
 	}
 
 	return (
-		<div className='mx-auto max-w-lg px-4 py-6 sm:px-6'>
-			<button
-				type='button'
-				onClick={() => router.back()}
-				className='mb-4 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition'
-			>
-				← Back
-			</button>
+		<div
+			className={
+				isModal ? 'w-full' : 'mx-auto max-w-lg px-4 py-6 sm:px-6'
+			}
+		>
+			{!isModal && (
+				<button
+					type='button'
+					onClick={() => router.back()}
+					className='mb-4 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition'
+				>
+					← {t('common.back')}
+				</button>
+			)}
 
 			<form
 				onSubmit={handleSubmit}
-				className='space-y-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-5 sm:p-6 shadow-sm'
+				className={`space-y-4 ${
+					isModal
+						? ''
+						: 'rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-5 sm:p-6 shadow-sm'
+				}`}
 			>
-				<h1 className='text-xl font-bold tracking-tight'>Add Card</h1>
+				<div className='flex items-center justify-between'>
+					<h1 className='text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100'>
+						{t('cards.add_card')}
+					</h1>
+					{isModal && onCancel && (
+						<button
+							type='button'
+							onClick={onCancel}
+							className='rounded-lg p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+						>
+							✕
+						</button>
+					)}
+				</div>
 
-				{error && <p className='text-sm text-red-500'>{error}</p>}
+				{error && <p className='text-xs text-red-500'>{error}</p>}
 
 				<div>
 					<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
-						Card Name
+						{t('cards.form.name_label')}
 					</label>
 					<input
 						value={cardName}
 						onChange={(e) => setCardName(e.target.value)}
 						required
-						placeholder='e.g. Supermarket Club'
-						className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+						placeholder={t('cards.form.name_placeholder')}
+						className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 					/>
 				</div>
 
 				<div>
 					<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
-						Store Preset
+						{t('cards.form.preset_label')}
 					</label>
 					<select
 						value={presetId}
 						onChange={(e) => setPresetId(e.target.value)}
-						className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+						className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 					>
-						<option value=''>Custom (no preset)</option>
+						<option value=''>{t('common.custom_no_preset')}</option>
 						{presets.map((p) => (
 							<option key={p.id} value={p.id}>
 								{p.name}
@@ -115,10 +155,9 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 				</div>
 
 				{selectedPreset && (
-					<div className='rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 p-3 text-xs flex items-center justify-between'>
+					<div className='rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 p-3 text-xs flex items-center justify-between'>
 						<span className='text-zinc-500'>
-							Preset color & barcode standard will be applied
-							automatically
+							{t('cards.form.preset_applied')}
 						</span>
 						{selectedPreset.color_scheme && (
 							<span
@@ -136,7 +175,7 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 					<>
 						<div>
 							<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
-								Barcode Type
+								{t('cards.form.barcode_type_label')}
 							</label>
 							<select
 								value={barcodeTypeId}
@@ -144,15 +183,17 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 									setBarcodeTypeId(e.target.value)
 								}
 								required
-								className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+								className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 							>
-								<option value=''>Select a type</option>
+								<option value=''>
+									{t('common.select_type')}
+								</option>
 								{barcodeTypes.map((bt) => (
 									<option key={bt.id} value={bt.id}>
 										{bt.code}{' '}
 										{bt.numeric_only
-											? '(Numeric)'
-											: '(Alphanumeric)'}
+											? `(${t('common.numeric')})`
+											: `(${t('common.alphanumeric')})`}
 									</option>
 								))}
 							</select>
@@ -160,7 +201,7 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 
 						<div>
 							<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
-								Card Color
+								{t('cards.form.color_label')}
 							</label>
 							<div className='flex gap-2 items-center'>
 								<input
@@ -178,7 +219,7 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 									}
 									required
 									placeholder='#2563eb'
-									className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+									className='w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 								/>
 							</div>
 						</div>
@@ -187,24 +228,35 @@ export default function NewCardClient({ presets, barcodeTypes }: Props) {
 
 				<div>
 					<label className='block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1'>
-						Code Value
+						{t('cards.form.code_label')}
 					</label>
 					<input
 						value={code}
 						onChange={(e) => setCode(e.target.value)}
 						required
-						placeholder='e.g. 123456789012'
-						className='w-full font-mono rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+						placeholder={t('cards.form.code_placeholder')}
+						className='w-full font-mono rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 					/>
 				</div>
 
-				<button
-					type='submit'
-					disabled={saving}
-					className='mt-2 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-blue-500 active:scale-[0.99] disabled:opacity-50 transition'
-				>
-					{saving ? 'Creating...' : 'Create Card'}
-				</button>
+				<div className='flex gap-2 pt-2'>
+					{isModal && onCancel && (
+						<button
+							type='button'
+							onClick={onCancel}
+							className='flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition'
+						>
+							{t('common.cancel')}
+						</button>
+					)}
+					<button
+						type='submit'
+						disabled={saving}
+						className='flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500 active:scale-[0.99] disabled:opacity-50 transition'
+					>
+						{saving ? t('cards.creating') : t('cards.create_card')}
+					</button>
+				</div>
 			</form>
 		</div>
 	);

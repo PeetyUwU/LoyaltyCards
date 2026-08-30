@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { cookies, headers } from 'next/headers';
 import './globals.css';
 import Navbar from '../components/Navbar';
+import { LanguageProvider, Locale } from '@/context/LanguageContext';
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -36,19 +38,39 @@ export const metadata: Metadata = {
 	},
 };
 
-export default function RootLayout({
+async function getInitialServerLocale(): Promise<Locale> {
+	const cookieStore = await cookies();
+	const cookieLocale = cookieStore.get('app_locale')?.value;
+	if (cookieLocale === 'en' || cookieLocale === 'cs') {
+		return cookieLocale;
+	}
+
+	const headerList = await headers();
+	const acceptLanguage = headerList.get('accept-language') || '';
+	if (acceptLanguage.toLowerCase().includes('cs')) {
+		return 'cs';
+	}
+
+	return 'en';
+}
+
+export default async function RootLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	const initialLocale = await getInitialServerLocale();
+
 	return (
 		<html
-			lang='en'
+			lang={initialLocale}
 			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
 		>
 			<body className='min-h-full flex flex-col'>
-				<Navbar />
-				<main className='flex-1'>{children}</main>
+				<LanguageProvider initialLocale={initialLocale}>
+					<Navbar />
+					<main className='flex-1'>{children}</main>
+				</LanguageProvider>
 			</body>
 		</html>
 	);

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, Preset, BarcodeType } from '@/lib/types';
 import BarcodeDisplay from '@/components/BarcodeDisplay';
+import ConfirmModal from '@/components/ConfirmModal';
+import { useTranslation } from '@/context/LanguageContext';
 
 interface Props {
 	card: Card;
@@ -22,14 +24,15 @@ export default function CardDetailClient({
 }: Props) {
 	const [position, setPosition] = useState<CodePosition>('top');
 	const [deleting, setDeleting] = useState(false);
+	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const router = useRouter();
+	const { t } = useTranslation();
 
 	const matchedPreset = presets.find((p) => p.id === card.company_preset_id);
 	const activeColor =
 		card.color_scheme || matchedPreset?.color_scheme || null;
 
-	// Resolve barcode type code string (e.g. "EAN13", "QR_CODE", "CODE128")
 	const typeId = card.barcode_type_id || matchedPreset?.barcode_type_id;
 	const matchedBarcodeType = barcodeTypes.find((bt) => bt.id === typeId);
 	const barcodeTypeCode = matchedBarcodeType?.code || null;
@@ -52,8 +55,7 @@ export default function CardDetailClient({
 	const canDelete = accessLevel === 'owner';
 	const canShare = accessLevel === 'owner';
 
-	async function handleDelete() {
-		if (!confirm("Delete this card? This can't be undone.")) return;
+	async function handleConfirmDelete() {
 		setDeleting(true);
 		setError(null);
 
@@ -63,15 +65,17 @@ export default function CardDetailClient({
 			});
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
-				setError(data.detail || 'Failed to delete card');
+				setError(data.detail || t('cards.delete_error'));
 				setDeleting(false);
+				setShowDeleteModal(false);
 				return;
 			}
 			router.push('/cards');
 			router.refresh();
 		} catch {
-			setError('Something went wrong. Try again.');
+			setError(t('common.generic_error'));
 			setDeleting(false);
+			setShowDeleteModal(false);
 		}
 	}
 
@@ -109,7 +113,7 @@ export default function CardDetailClient({
 					)}
 					{accessLevel !== 'owner' && (
 						<span className='inline-block mt-2 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400'>
-							Shared as {accessLevel}
+							{t('common.shared_as', { role: accessLevel })}
 						</span>
 					)}
 				</div>
@@ -130,7 +134,7 @@ export default function CardDetailClient({
 						onClick={() => router.push(`/cards/${card.id}/edit`)}
 						className='flex-1 min-w-[80px] rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-700 transition'
 					>
-						Edit
+						{t('common.edit')}
 					</button>
 				)}
 				{canShare && (
@@ -139,17 +143,17 @@ export default function CardDetailClient({
 						onClick={() => router.push(`/cards/${card.id}/share`)}
 						className='flex-1 min-w-[80px] rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-700 transition'
 					>
-						Share
+						{t('common.share')}
 					</button>
 				)}
 				{canDelete && (
 					<button
 						type='button'
-						onClick={handleDelete}
+						onClick={() => setShowDeleteModal(true)}
 						disabled={deleting}
 						className='flex-1 min-w-[80px] rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition'
 					>
-						{deleting ? 'Deleting...' : 'Delete'}
+						{t('common.delete')}
 					</button>
 				)}
 			</div>
@@ -165,7 +169,7 @@ export default function CardDetailClient({
 						onClick={() => router.push('/cards')}
 						className='flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors'
 					>
-						← Back
+						← {t('common.back')}
 					</button>
 
 					<div className='flex items-center gap-1 bg-zinc-200 dark:bg-zinc-800 p-1 rounded-lg text-xs font-medium'>
@@ -181,7 +185,7 @@ export default function CardDetailClient({
 											: 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
 									}`}
 								>
-									{pos}
+									{t(`cards.position.${pos}`)}
 								</button>
 							),
 						)}
@@ -196,6 +200,17 @@ export default function CardDetailClient({
 			{position === 'bottom' && (
 				<div className='mt-auto pt-6 pb-2'>{codeComponent}</div>
 			)}
+
+			<ConfirmModal
+				isOpen={showDeleteModal}
+				title={t('common.delete')}
+				message={t('cards.delete_confirm')}
+				confirmText={t('common.delete')}
+				isDestructive={true}
+				isLoading={deleting}
+				onConfirm={handleConfirmDelete}
+				onCancel={() => setShowDeleteModal(false)}
+			/>
 		</div>
 	);
 }
