@@ -3,7 +3,7 @@ from app.routers import auth, cards, sharing, presets, users, settings
 
 app = FastAPI()
 
-app.include_router(auth.router, tags=["authentication"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, tags=["users"])
 app.include_router(settings.router, tags=["settings"])
 app.include_router(cards.router, tags=["cards"])
