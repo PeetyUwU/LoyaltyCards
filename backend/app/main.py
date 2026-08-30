@@ -1,30 +1,15 @@
-import shutil
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+import shutil
 
-from app.database import get_db, engine, Base
+from app.database import get_db
 from app.routers import auth, cards, sharing, presets, users, settings
 
-from app.models.user import User  # noqa: F401
-from app.models.role import Role  # noqa: F401
-from app.models.card import Card  # noqa: F401
-from app.models.card_access import CardAccess  # noqa: F401
-from app.models.barcode_type import BarcodeType  # noqa: F401
-from app.models.company_preset import CompanyPreset  # noqa: F401
-from app.models.app_settings import AppSettings  # noqa: F401
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 @app.get("/health", tags=["health"])
