@@ -70,7 +70,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             detail="This account has been disabled",
         )
 
-    access_token = create_access_token(user.id)
+    access_token = create_access_token(user.id, user.token_version)
     return Token(access_token=access_token)
 
 @router.get("/me", response_model=UserOut)

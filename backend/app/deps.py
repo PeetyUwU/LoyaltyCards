@@ -21,13 +21,13 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    user_id = decode_access_token(token)
+    user_id, token_version = decode_access_token(token)
     if user_id is None:
         raise credentials_exception
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None or not user.is_active:
+    if user is None or not user.is_active or user.token_version != token_version:
         raise credentials_exception
 
     return user
