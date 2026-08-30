@@ -30,19 +30,21 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 function getInitialLocale(): Locale {
 	if (typeof window === 'undefined') return 'en';
 
-	const match = document.cookie.match(/(?:^|;\s*)app_locale=([^;]+)/);
-	if (match && (match[1] === 'en' || match[1] === 'cs')) {
-		return match[1] as Locale;
-	}
+	try {
+		const match = document.cookie.match(/(?:^|;\s*)app_locale=([^;]+)/);
+		if (match && (match[1] === 'en' || match[1] === 'cs')) {
+			return match[1] as Locale;
+		}
 
-	const saved = localStorage.getItem('app_locale') as Locale | null;
-	if (saved === 'en' || saved === 'cs') {
-		return saved;
-	}
+		const saved = localStorage.getItem('app_locale') as Locale | null;
+		if (saved === 'en' || saved === 'cs') {
+			return saved;
+		}
 
-	if (navigator.language.toLowerCase().startsWith('cs')) {
-		return 'cs';
-	}
+		if (navigator.language.toLowerCase().startsWith('cs')) {
+			return 'cs';
+		}
+	} catch {}
 
 	return 'en';
 }
@@ -58,17 +60,23 @@ export function LanguageProvider({
 	const [isReady, setIsReady] = useState(false);
 
 	useEffect(() => {
-		const detected = getInitialLocale();
-		if (detected !== locale) {
-			setLocaleState(detected);
-			document.documentElement.lang = detected;
+		try {
+			const detected = getInitialLocale();
+			if (detected !== locale) {
+				setLocaleState(detected);
+				document.documentElement.lang = detected;
+			}
+		} catch {
+		} finally {
+			setIsReady(true);
 		}
-		setIsReady(true);
-	}, [locale]);
+	}, []);
 
 	const setLocale = (newLocale: Locale) => {
 		setLocaleState(newLocale);
-		localStorage.setItem('app_locale', newLocale);
+		try {
+			localStorage.setItem('app_locale', newLocale);
+		} catch {}
 		document.cookie = `app_locale=${newLocale}; path=/; max-age=31536000; SameSite=Lax`;
 		document.documentElement.lang = newLocale;
 	};
