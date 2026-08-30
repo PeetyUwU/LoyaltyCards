@@ -5,3 +5,4 @@ from app.models.barcode_type import BarcodeType
 from app.models.company_preset import CompanyPreset
 from app.models.card import Card
 from app.models.card_access import CardAccess
+from app.models.app_settings import AppSettings
