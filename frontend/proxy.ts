@@ -4,9 +4,23 @@ import { decodeJwt } from 'jose';
 
 const PUBLIC_PATHS = ['/login', '/register'];
 const ADMIN_PATHS = ['/admin'];
+const PUBLIC_ASSET_PATTERNS = [
+	/^\/uploads\//,
+	/\.webmanifest$/,
+	/\.png$/,
+	/\.ico$/,
+	/\.svg$/,
+	/\.jpg$/,
+	/\.jpeg$/,
+];
 
 export function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl;
+
+	if (PUBLIC_ASSET_PATTERNS.some((pattern) => pattern.test(pathname))) {
+		return NextResponse.next();
+	}
+
 	const token = request.cookies.get('access_token')?.value;
 
 	const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
