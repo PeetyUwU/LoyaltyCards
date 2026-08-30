@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, status
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +49,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 
     return health_status
 
-
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, tags=["users"])
 app.include_router(settings.router, tags=["settings"])

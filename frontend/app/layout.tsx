@@ -30,7 +30,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
 	title: 'Loyalty Cards',
 	description: 'Manage and display your loyalty cards quickly',
-	manifest: '/manifest.webmanifest',
+	manifest: '/site.webmanifest',
 	appleWebApp: {
 		capable: true,
 		statusBarStyle: 'black-translucent',

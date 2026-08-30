@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from pathlib import Path
 
 from app.database import get_db
 from app.models.company_preset import CompanyPreset
@@ -16,6 +17,10 @@ from app.schemas.preset import (
     BarcodeTypeUpdate,
 )
 from app.deps import get_current_user, require_role
+
+UPLOAD_DIR = Path("uploads/presets")
+ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+MAX_FILE_SIZE = 5 * 1024 * 1024
 
 router = APIRouter()
 
@@ -303,3 +308,44 @@ async def delete_barcode_type(
 
     await db.delete(barcode_type)
     await db.commit()
+    
+    
+@router.post("/presets/{id}/image", response_model=PresetOut)
+async def upload_preset_image(
+    id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin")),
+):
+    result = await db.execute(select(CompanyPreset).where(CompanyPreset.id == id))
+    preset = result.scalar_one_or_none()
+    if not preset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preset not found")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
+        )
+
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 5MB)")
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    if preset.image_url and preset.image_url.startswith("/uploads/presets/"):
+        old_path = Path(preset.image_url.lstrip("/"))
+        if old_path.exists() and old_path.suffix.lower() != ext:
+            old_path.unlink()
+
+    filename = f"{id}{ext}"
+    filepath = UPLOAD_DIR / filename
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    preset.image_url = f"/uploads/presets/{filename}"
+    await db.commit()
+    await db.refresh(preset)
+    return preset
