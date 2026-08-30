@@ -7,27 +7,27 @@ export async function GET() {
 	const cookieStore = await cookies();
 	const token = cookieStore.get('access_token')?.value;
 
-	const res = await fetch(`${BACKEND_URL}/presets/`, {
+	const res = await fetch(`${BACKEND_URL}/settings/`, {
 		headers: { Authorization: `Bearer ${token}` },
 		cache: 'no-store',
 	});
 
 	if (!res.ok) {
 		return NextResponse.json(
-			{ detail: 'Failed to fetch presets' },
+			{ detail: 'Failed to fetch settings' },
 			{ status: res.status },
 		);
 	}
 	return NextResponse.json(await res.json());
 }
 
-export async function POST(request: NextRequest) {
+export async function PATCH(request: NextRequest) {
 	const cookieStore = await cookies();
 	const token = cookieStore.get('access_token')?.value;
 	const body = await request.json();
 
-	const res = await fetch(`${BACKEND_URL}/presets/`, {
-		method: 'POST',
+	const res = await fetch(`${BACKEND_URL}/settings/`, {
+		method: 'PATCH',
 		headers: {
 			Authorization: `Bearer ${token}`,
 			'Content-Type': 'application/json',
@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
 	if (!res.ok) {
 		const error = await res.json().catch(() => ({}));
 		return NextResponse.json(
-			{ detail: error.detail || 'Failed to create preset' },
+			{ detail: error.detail || 'Failed to update settings' },
 			{ status: res.status },
 		);
 	}
-	return NextResponse.json(await res.json(), { status: 201 });
+	return NextResponse.json(await res.json());
 }
