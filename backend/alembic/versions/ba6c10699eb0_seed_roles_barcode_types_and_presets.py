@@ -10,8 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import table, column, Integer, String, Boolean
-
-
+from sqlalchemy.dialects import mysql
 # revision identifiers, used by Alembic.
 revision: str = 'ba6c10699eb0'
 down_revision: Union[str, Sequence[str], None] = '35f1fe0ba718'
@@ -75,3 +74,4 @@ def downgrade() -> None:
     op.execute("DELETE FROM company_preset")
     op.execute("DELETE FROM barcode_types")
     op.execute("DELETE FROM roles")
+
