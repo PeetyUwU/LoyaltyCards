@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_access import CardAccess
 from app.models.user import User
-from app.schemas.card import CardCreate, CardUpdate, CardOut
+from app.schemas.card import CardCreate, CardUpdate, CardOut, SharedCardOut
 from app.deps import get_current_user
 from app.services.card_access import require_card_access, AccessLevel
 from app.services.barcode_validation import resolve_barcode_type, validate_card_code
@@ -38,12 +38,65 @@ async def create_card(
     return db_card
 
 
-@router.get("/cards/", response_model=list[CardOut])
-async def get_cards(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = select(Card).join(CardAccess).where(CardAccess.user_id == current_user.id)
+@router.get("/cards/mine", response_model=list[CardOut])
+async def get_my_cards(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cards the current user owns — full control, editable."""
+    query = (
+        select(Card)
+        .join(CardAccess, CardAccess.card_id == Card.id)
+        .where(
+            CardAccess.user_id == current_user.id,
+            CardAccess.access_level == AccessLevel.owner.name,
+        )
+    )
     result = await db.execute(query)
     cards = result.scalars().all()
     return cards
+
+
+@router.get("/cards/shared", response_model=list[SharedCardOut])
+async def get_shared_cards(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cards shared with the current user by someone else — editor or viewer access."""
+    query = (
+        select(Card, CardAccess.access_level, CardAccess.shared_at, CardAccess.shared_by)
+        .join(CardAccess, CardAccess.card_id == Card.id)
+        .where(
+            CardAccess.user_id == current_user.id,
+            CardAccess.access_level != AccessLevel.owner.name,
+        )
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    shared_cards = []
+    for card, access_level, shared_at, shared_by_id in rows:
+        shared_by_username = None
+        if shared_by_id is not None:
+            sharer_result = await db.execute(select(User.username).where(User.id == shared_by_id))
+            shared_by_username = sharer_result.scalar_one_or_none()
+
+        shared_cards.append(
+            SharedCardOut(
+                id=card.id,
+                created_by=card.created_by,
+                card_name=card.card_name,
+                code=card.code,
+                barcode_type_id=card.barcode_type_id,
+                company_preset_id=card.company_preset_id,
+                color_scheme=card.color_scheme,
+                added_at=card.added_at,
+                access_level=access_level,
+                shared_by_username=shared_by_username,
+                shared_at=shared_at,
+            )
+        )
+    return shared_cards
 
 
 @router.get("/cards/{card_id}", response_model=CardOut)

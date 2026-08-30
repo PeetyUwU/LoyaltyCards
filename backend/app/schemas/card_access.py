@@ -4,7 +4,7 @@ from typing import Literal
 
 class ShareRequest(BaseModel):
     user_id: int
-    access_level: Literal["owner", "editor", "viewer"]
+    access_level: Literal["editor", "viewer"]
 
 
 class CardAccessOut(BaseModel):
