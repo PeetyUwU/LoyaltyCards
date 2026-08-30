@@ -1,0 +1,47 @@
+services:
+    mariadb:
+        image: mariadb:12-noble
+        container_name: loyalty-mariadb
+        restart: unless-stopped
+        environment:
+            MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+            MARIADB_DATABASE: loyalty_cards
+            MARIADB_USER: ${DB_USER:-loyalty_user}
+            MARIADB_PASSWORD: ${DB_PASSWORD:-loyalty_password}
+        volumes:
+            - mariadb_data:/var/lib/mysql
+        ports:
+            - '3306:3306'
+        healthcheck:
+            test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    backend:
+        image: ghcr.io/peetyuwu/loyaltycards-backend:latest
+        container_name: loyalty-backend
+        restart: unless-stopped
+        environment:
+            DATABASE_URL: mysql+asyncmy://${DB_USER:-loyalty_user}:${DB_PASSWORD:-loyalty_password}@mariadb:3306/loyalty_cards
+            SECRET_KEY: ${SECRET_KEY:-change_this_secret_key}
+        ports:
+            - '8000:8000'
+        depends_on:
+            mariadb:
+                condition: service_healthy
+
+    frontend:
+        image: ghcr.io/peetyuwu/loyaltycards-frontend:latest
+        container_name: loyalty-frontend
+        restart: unless-stopped
+        environment:
+            BACKEND_URL: http://backend:8000
+        ports:
+            - '3000:3000'
+        depends_on:
+            backend:
+                condition: service_healthy
+
+volumes:
+    mariadb_data:
