@@ -1,0 +1,17 @@
+{
+	"name": "Loyalty Cards",
+	"short_name": "LoyaltyCards",
+	"description": "Store and scan your loyalty cards anywhere",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#0a0a0a",
+	"theme_color": "#0a0a0a",
+	"orientation": "portrait-primary",
+	"icons": [
+		{
+			"src": "/favicon.ico",
+			"sizes": "64x64 32x32 24x24 16x16",
+			"type": "image/x-icon"
+		}
+	]
+}
