@@ -5,7 +5,7 @@ import { decodeJwt } from 'jose';
 const PUBLIC_PATHS = ['/login', '/register'];
 const ADMIN_PATHS = ['/admin'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 	const token = request.cookies.get('access_token')?.value;
 
